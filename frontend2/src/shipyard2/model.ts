@@ -29,6 +29,8 @@ export class Model extends ModelBase {
   private data = {
     lines: {},
     selectedLines: {},
+    curves: {},
+    selectedCurves: {},
   };
 
   public onLineEvent(event: ILineEvent) {

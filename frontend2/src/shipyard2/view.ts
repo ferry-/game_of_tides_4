@@ -7,6 +7,7 @@ import {
   ILineEvent,
   ILinePos,
   IPoint,
+  ISpline,
   MockController} from "./controller";
 import {DropDown, Modal} from "./modal";
 
@@ -852,18 +853,33 @@ export class ViewToolbar extends ViewBase {
   }
 }
 
-export class Line extends Konva.Group {
+export class LineBase extends Konva.Group {
+  public mirrored: boolean;
+  public z: number;
+  protected selectedValue: boolean;
+  protected highlightValue: boolean;
+  protected lineOverCallback: (event: MouseEvent) => void;
+}
+
+function rectIntersection(a: Konva.SizeConfig, b: Konva.SizeConfig): boolean {
+  return (a.x <= b.x &&
+  a.x <= b.x + b.width &&
+  a.x + a.width >= b.x &&
+  a.x + a.width >= b.x + b.width &&
+  a.y <= b.y &&
+  a.y <= b.y + b.height &&
+  a.y + a.height >= b.y &&
+  a.y + a.height >=
+    b.y + b.height);
+}
+
+export class Line extends LineBase {
   public line1: Konva.Line;  // Primary line.
   public line2: Konva.Line;  // Mirrored line. (Not always set visible.)
   public end1A: Konva.Circle;
   public end2A: Konva.Circle;
   public end1B: Konva.Circle;
   public end2B: Konva.Circle;
-  public mirrored: boolean;
-  public z: number;
-  private selectedValue: boolean;
-  private highlightValue: boolean;
-  private lineOverCallback: (event: MouseEvent) => void;
 
   constructor(id: string,
               lineOverCallback: (event: MouseEvent) => void) {
@@ -1019,28 +1035,188 @@ export class Line extends Konva.Group {
     const shapeBounds = shape.getClientRect();
     const line1Bounds = this.line1.getClientRect();
     const line2Bounds = this.line2.getClientRect();
-    if(shapeBounds.x <= line1Bounds.x &&
-       shapeBounds.x <= line1Bounds.x + line1Bounds.width &&
-       shapeBounds.x + shapeBounds.width >= line1Bounds.x &&
-       shapeBounds.x + shapeBounds.width >= line1Bounds.x + line1Bounds.width &&
-       shapeBounds.y <= line1Bounds.y &&
-       shapeBounds.y <= line1Bounds.y + line1Bounds.height &&
-       shapeBounds.y + shapeBounds.height >= line1Bounds.y &&
-       shapeBounds.y + shapeBounds.height >=
-         line1Bounds.y + line1Bounds.height) {
-      return true;
+    return (rectIntersection(shapeBounds, line1Bounds) ||
+            rectIntersection(shapeBounds, line2Bounds));
+  }
+
+  private onMouse(event: MouseEvent) {
+    this.lineOverCallback(event);
+  }
+}
+
+export class Bezier extends LineBase {
+  public ctrPoint: Konva.Circle[]; // Control points
+  public ctrPointLine: Konva.Line[]; // Connecting lines
+  public ctrMirrorPoint: Konva.Circle[]; // Mirrored control points
+  public ctrMirrorPointLine: Konva.Line[]; // Mirrored lines
+
+  get order(): number {
+    return this.ctrPoint.length;
+  }
+
+  constructor(id: string,
+              lineOverCallback: (event: MouseEvent) => void) {
+    super();
+
+    this.id(id);
+    this.lineOverCallback = lineOverCallback;
+    this.mirrored = false;
+    this.highlightValue = false;
+
+    this.ctrPoint = [];
+    this.ctrPointLine = [];
+    this.ctrMirrorPoint = [];
+    this.ctrMirrorPointLine = [];
+
+    this.on("mouseover", this.onMouse.bind(this));
+    this.on("mousedown", this.onMouse.bind(this));
+    this.on("mouseup", this.onMouse.bind(this));
+    this.on("mousemove", this.onMouse.bind(this));
+  }
+
+  public moveEnd(end: Konva.Circle, x: number, y: number) {
+    // TODO: O(n) doesn't feel right
+    let i = 0;
+    while (i < this.order) {
+      if (end === this.ctrPoint[i]) {
+        break;
+      } else if (end === this.ctrMirrorPoint[i]) {
+        x = -x;
+        break;
+      }
+      i++;
     }
-    if(this.mirrored &&
-       shapeBounds.x <= line2Bounds.x &&
-       shapeBounds.x <= line2Bounds.x + line2Bounds.width &&
-       shapeBounds.x + shapeBounds.width >= line2Bounds.x &&
-       shapeBounds.x + shapeBounds.width >= line2Bounds.x + line2Bounds.width &&
-       shapeBounds.y <= line2Bounds.y &&
-       shapeBounds.y <= line2Bounds.y + line2Bounds.height &&
-       shapeBounds.y + shapeBounds.height >= line2Bounds.y &&
-       shapeBounds.y + shapeBounds.height >=
-         line2Bounds.y + line2Bounds.height) {
-      return true;
+
+    if (i < this.order) {
+      const nominal = this.ctrPoint[i];
+      const mirror = this.ctrMirrorPoint[i];
+
+      nominal.x(x);
+      nominal.y(y);
+      mirror.x(-x);
+      mirror.y(y);
+
+      if (i > 0) {
+        const pn = this.ctrPointLine[i-1];
+        const pm = this.ctrMirrorPointLine[i-1];
+        const px = this.ctrPoint[i-1].x();
+        const py = this.ctrPoint[i-1].y();
+
+        pn.points([px, py, x, y]);
+        pm.points([-px, py, -x, y]);
+      }
+      if (i < this.order-1) {
+        const nn = this.ctrPointLine[i];
+        const nm = this.ctrMirrorPointLine[i];
+        const nx = this.ctrPoint[i+1].x();
+        const ny = this.ctrPoint[i+1].y();
+
+        nn.points([x, y, nx, ny]);
+        nm.points([-x, y, -nx, ny]);
+      }
+    }
+  }
+
+  public selected(value?: boolean): boolean {
+    if(value === undefined) {
+      return this.selectedValue;
+    }
+    this.selectedValue = value;
+    if(value) {
+      for (const circle of this.ctrPoint) {
+        circle.fill("orange");
+      }
+      for (const circle of this.ctrMirrorPoint) {
+        circle.fill("orange");
+      }
+      for (const line of this.ctrPointLine) {
+        line.stroke("orange");
+      }
+      for (const line of this.ctrMirrorPointLine) {
+        line.stroke("orange");
+      }
+    } else {
+      for (const circle of this.ctrPoint) {
+        circle.fill("white");
+      }
+      for (const circle of this.ctrMirrorPoint) {
+        circle.fill("white");
+      }
+      for (const line of this.ctrPointLine) {
+        line.stroke("black");
+      }
+      for (const line of this.ctrMirrorPointLine) {
+        line.stroke("black");
+      }
+    }
+
+    return this.selectedValue;
+  }
+
+  public highlight(value?: boolean) {
+    if(value === undefined) {
+      return this.highlightValue;
+    }
+    this.highlightValue = value;
+    if(value) {
+      for (const circle of this.ctrPoint) {
+        circle.strokeWidth(3);
+      }
+      for (const circle of this.ctrMirrorPoint) {
+        circle.strokeWidth(3);
+      }
+      for (const line of this.ctrPointLine) {
+        line.strokeWidth(3);
+      }
+      for (const line of this.ctrMirrorPointLine) {
+        line.strokeWidth(3);
+      }
+      this.moveToTop();
+    } else {
+      for (const circle of this.ctrPoint) {
+        circle.strokeWidth(1);
+      }
+      for (const circle of this.ctrMirrorPoint) {
+        circle.strokeWidth(1);
+      }
+      for (const line of this.ctrPointLine) {
+        line.strokeWidth(2);
+      }
+      for (const line of this.ctrMirrorPointLine) {
+        line.strokeWidth(2);
+      }
+    }
+    return this.highlightValue;
+  }
+
+  public draw(): Konva.Node {
+    for (const circle of this.ctrMirrorPoint) {
+      circle.visible(this.mirrored);
+    }
+    for (const line of this.ctrMirrorPointLine) {
+      line.visible(this.mirrored);
+    }
+    return super.draw();
+  }
+
+  public destroy() {
+    this.destroyChildren();
+    super.destroy();
+  }
+
+  public doesOverlap(shape: Konva.Node): boolean {
+    // TODO: cache final rect size since it changes less often than is checked
+
+    const shapeBounds = shape.getClientRect();
+    for (const line of this.ctrPointLine) {
+      if (rectIntersection(line.getClientRect(), shapeBounds)) {
+        return true;
+      }
+    }
+    for (const line of this.ctrMirrorPointLine) {
+      if (rectIntersection(line.getClientRect(), shapeBounds)) {
+        return true;
+      }
     }
     return false;
   }
