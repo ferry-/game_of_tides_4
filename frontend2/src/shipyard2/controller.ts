@@ -6,7 +6,27 @@ import {ViewBase} from "./view";
 const storageName = "shipYardCommandBuffers";
 
 interface ICommand {
-  lineEvents: ILineEvent[];
+  lineEvents?: ILineEvent[];
+  backgroundImageEvents?: IBackgroundImageEvent[];
+}
+
+export interface Ixy {
+  x: number;
+  y: number;
+}
+
+export interface IBackgroundImage {
+  widgetType: string;
+  finishVisible?: boolean;
+  finishImage?: string;
+  finishPos?: Ixy;
+}
+
+export interface IBackgroundImageEvent extends IBackgroundImage {
+  sequence: string;
+  startVisible?: boolean;
+  startImage?: string;
+  startPos?: Ixy;
 }
 
 export interface IPoint {
@@ -29,10 +49,11 @@ export interface ILine {
 }
 
 export interface ILineEvent extends ILine {
-  sequence: string;
-  startPos?: ILinePos;
-  toggleMirrored?: boolean;
-  selecting?: boolean;
+  sequence: string;         // Unique id for series of related commands.
+  widgetType?: string;      // Command originating widget type.
+  startPos?: ILinePos;      // Position before command executed.
+  toggleMirrored?: boolean; // Change mirroring status.
+  selecting?: boolean;      // Change selected status.
 }
 
 export interface ISpline {
@@ -43,6 +64,10 @@ export interface ISpline {
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
   return (p1.x === p2.x && p1.y === p2.y && p1.z === p2.z);
+}
+
+export function subtractPoint(p1: IPoint, p2: IPoint): IPoint {
+  return {x: p1.x - p2.x, y: p1.y - p2.y, z: p1.z - p2.z};
 }
 
 export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
@@ -125,8 +150,13 @@ export abstract class ControllerBase {
     });
   }
 
-  public onLineEvent(event): void {/**/}
+  public onLineEvent(lineEvent: ILineEvent,
+                     backgroundImageEvent?: IBackgroundImageEvent): void {/**/}
+  public onBackgroundImageEvent(event: IBackgroundImageEvent) {/**/}
   public updateViews(line: ILine): void {/**/}
+  public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
+    /**/
+  }
   public onButtonEvent(buttonLabel: string, value?: number) {/**/}
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
@@ -143,16 +173,30 @@ export class Controller extends ControllerBase {
   private sequenceCounter: number = 0;
   private commandPointer: number;
   private buttonStates = {
-    selectLine: {value: false, clear: ["addLine"], preventUnClick: true},
-    addLine: {value: true, clear: ["selectLine"], preventUnClick: true},
-    allLayers: {value: false},
-    selected_rib: {},
-    clearSelectCursor: {value: false},
+    selectLine: {
+      value: false,
+      clear: ["addLine", "backgroundImage", "fileOps"],
+      preventUnClick: true},
+    addLine: {
+      value: true,
+      clear: ["selectLine", "backgroundImage", "fileOps"],
+      preventUnClick: true},
+    backgroundImage: {
+      value: false,
+      clear: ["addLine", "selectLine", "fileOps"],
+      preventUnClick: true},
+    allLayers: {value: false, clear: ["fileOps"]},
+    selected_rib: {clear: ["fileOps"]},
+    clearSelectCursor: {value: false, clear: ["fileOps"]},
     fileOps: {value: 0},
     fileOpsSave: {},
     fileOpsLoad: {},
     fileOpsDelete: {},
     fileOpsNew: {},
+    backgroundImageShowCross: {},
+    backgroundImageShowLength: {},
+    backgroundImageUrlCross: {},
+    backgroundImageUrlLength: {},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -165,7 +209,7 @@ export class Controller extends ControllerBase {
   }
 
   public onButtonEvent(buttonLabel: string, value?: any) {
-    // this.logger.log(buttonLabel);
+    // this.logger.log(buttonLabel, value);
     value = this.updateButton(buttonLabel, value);
 
     switch (buttonLabel) {
@@ -189,7 +233,15 @@ export class Controller extends ControllerBase {
         break;
       case "allLayers":
         break;
-      case "background":
+      case "backgroundImage":
+        break;
+      case "backgroundImageShowCross":
+        break;
+      case "backgroundImageShowLength":
+        break;
+      case "backgroundImageUrlCross":
+        break;
+      case "backgroundImageUrlLength":
         break;
       case "fileOps":
         break;
@@ -218,7 +270,8 @@ export class Controller extends ControllerBase {
     }
   }
 
-  public onLineEvent(lineEvent: ILineEvent) {
+  public onLineEvent(lineEvent: ILineEvent,
+                     backgroundImageEvent?: IBackgroundImageEvent) {
     if(!lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos) {
       this.logger.warn("No id, startPos or finishPos for line: ", lineEvent.id);
       return;
@@ -282,6 +335,8 @@ export class Controller extends ControllerBase {
         view.drawSelectCursor(lineEvent.finishPos.a, lineEvent.finishPos.b);
       });
       return;
+    } else if(this.buttonStates.backgroundImage.value) {
+      console.assert(Boolean(backgroundImageEvent));
     } else {
       if(lineEvent.finishPos) {
         // Ensure both endpoints are in the same plane.
@@ -291,9 +346,23 @@ export class Controller extends ControllerBase {
       }
     }
 
+    const command: ICommand = {};
+    if(this.buttonStates.addLine.value) {
+      command.lineEvents = [lineEvent];
+    } else if(this.buttonStates.backgroundImage.value && backgroundImageEvent) {
+      command.backgroundImageEvents = [backgroundImageEvent];
+    }
+    this.recordCommand(command);
+    this.performCommand(null, command);
+  }
+
+  public onBackgroundImageEvent(event: IBackgroundImageEvent) {
+    this.newSequence();
     const command: ICommand = {
-      lineEvents: [lineEvent],
+      backgroundImageEvents: [],
     };
+
+    command.backgroundImageEvents.push(event);
     this.recordCommand(command);
     this.performCommand(null, command);
   }
@@ -350,6 +419,13 @@ export class Controller extends ControllerBase {
   public updateViews(line: ILine) {
     this.views.forEach((view) => {
       view.updateLine(line);
+    });
+  }
+
+  public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
+    this.views.forEach((view) => {
+      // TODO Send this through updateButton(...) so it updated menu.
+      view.setBackgroundImage(backgroundImage);
     });
   }
 
@@ -477,9 +553,11 @@ export class Controller extends ControllerBase {
       return false;
     }
     let returnVal = false;
-    command1.lineEvents.forEach((lineEvent1) => {
-      command2.lineEvents.forEach((lineEvent2) => {
-        if(lineEvent1.sequence === lineEvent2.sequence) {
+    const events1: any = command1.lineEvents || command1.backgroundImageEvents;
+    const events2: any = command2.lineEvents || command2.backgroundImageEvents;
+    events1.forEach((event1) => {
+      events2.forEach((event2) => {
+        if(event1.sequence === event2.sequence) {
           returnVal = true;
         }
       });
@@ -489,17 +567,24 @@ export class Controller extends ControllerBase {
 
   private loggableCommand(command: ICommand): boolean {
     let returnVal = false;
-    command.lineEvents.forEach((lineEvent) => {
-      if(lineEvent.selecting) {
-        returnVal = returnVal || (Boolean(lineEvent.startPos) && !lineEvent.id);
-      } else {
-        returnVal = returnVal ||
-          Boolean(lineEvent.startPos) ||
-          Boolean(lineEvent.finishPos) ||
-          lineEvent.toggleMirrored !== undefined;
-      }
-    });
-    // console.log("loggableCommand(", command, "):", returnVal);
+    if(command.lineEvents) {
+      command.lineEvents.forEach((lineEvent) => {
+        if(lineEvent.selecting) {
+          returnVal = returnVal ||
+            (Boolean(lineEvent.startPos) && !lineEvent.id);
+        } else {
+          returnVal = returnVal ||
+            Boolean(lineEvent.startPos) ||
+            Boolean(lineEvent.finishPos) ||
+            lineEvent.toggleMirrored !== undefined;
+        }
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        returnVal = true;
+      });
+    }
     return returnVal;
   }
 
@@ -527,13 +612,22 @@ export class Controller extends ControllerBase {
       command = this.commands[commandIndex];
     }
 
-    command.lineEvents.forEach((lineEvent) => {
-      this.views.forEach((view) => {
-        view.syncSequence(lineEvent.id);
-      });
+    // console.log(commandIndex, command);
 
-      this.model.onLineEvent(lineEvent);
-    });
+    if(command.lineEvents) {
+      command.lineEvents.forEach((event) => {
+        this.views.forEach((view) => {
+          view.syncSequence(event.id);
+        });
+
+        this.model.onLineEvent(event);
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        this.model.onBackgroundImageEvent(event);
+      });
+    }
 
     this.setButtonStates();
   }
@@ -553,18 +647,30 @@ export class Controller extends ControllerBase {
     }
 
     const command = this.commands[commandIndex];
-    command.lineEvents.forEach((lineEvent) => {
-      console.log(lineEvent);
-      const reverseLineEvent = {
-        id: lineEvent.id,
-        startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
-        finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
-        toggleMirrored: lineEvent.toggleMirrored,
-        // TODO Make test for interaction between undo and mirrored.
-        mirrored: lineEvent.mirrored,
-      };
-      this.model.onLineEvent(reverseLineEvent);
-    });
+    if(command.lineEvents) {
+      command.lineEvents.forEach((lineEvent) => {
+        console.log(lineEvent);
+        const reverseLineEvent = {
+          id: lineEvent.id,
+          startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
+          finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
+          toggleMirrored: lineEvent.toggleMirrored,
+          // TODO Make test for interaction between undo and mirrored.
+          mirrored: lineEvent.mirrored,
+        };
+        this.model.onLineEvent(reverseLineEvent);
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        const reverseBackgroundImageEvent = JSON.parse(JSON.stringify(event));
+        reverseBackgroundImageEvent.startVisible = event.finishVisible;
+        reverseBackgroundImageEvent.finishVisible = event.startVisible;
+        reverseBackgroundImageEvent.startImage = event.finishImage;
+        reverseBackgroundImageEvent.finishImage = event.startImage;
+        this.model.onBackgroundImageEvent(reverseBackgroundImageEvent);
+      });
+    }
     this.setButtonStates();
   }
 
@@ -667,7 +773,7 @@ export class Controller extends ControllerBase {
       data = [];
     }
     data = JSON.stringify(data);
-    console.log(data);
+    // console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
   }
@@ -706,8 +812,8 @@ export class MockController extends ControllerBase {
     this.commands = [];
   }
 
-  public onLineEvent(event): void {
-    this.commands.push(event);
+  public onLineEvent(lineEvent: ILineEvent): void {
+    this.commands.push(lineEvent);
   }
 
   public getLine(lineId: string): ILine {

@@ -2,6 +2,8 @@
 
 import {compareLinePos,
   ControllerBase,
+  IBackgroundImage,
+  IBackgroundImageEvent,
   ILine,
   ILineEvent,
   ILinePos,
@@ -14,6 +16,7 @@ export abstract class ModelBase {
   }
 
   public abstract onLineEvent(event): void;
+  public abstract onBackgroundImageEvent(event): void;
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
     return {point: null, mirrored: null};
   }
@@ -28,17 +31,26 @@ export abstract class ModelBase {
 export class Model extends ModelBase {
   private data = {
     lines: {},
+    backgroundImages: {},
     selectedLines: {},
     curves: {},
     selectedCurves: {},
   };
 
   public onLineEvent(event: ILineEvent) {
-    // console.log(event);
+    console.log(event);
     if(!this.data.lines[event.id]) {
       this.createLine(event);
     }
     this.modifyLine(event);
+  }
+
+  public onBackgroundImageEvent(event: IBackgroundImageEvent) {
+    // console.log(event);
+    if(!this.data.backgroundImages[event.widgetType]) {
+      this.createBackgroundImage(event);
+    }
+    this.modifyBackgroundImage(event);
   }
 
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
@@ -145,8 +157,13 @@ export class Model extends ModelBase {
     this.data.lines[event.id] = line;
   }
 
+  private createBackgroundImage(event: IBackgroundImageEvent) {
+    const backgroundImage: IBackgroundImage = {widgetType: event.widgetType};
+    this.data.backgroundImages[event.widgetType] = backgroundImage;
+  }
+
   private modifyLine(event: ILineEvent) {
-    const line = this.data.lines[event.id];
+    const line: ILine = this.data.lines[event.id];
     // console.log(event);
 
     if(event.finishPos) {
@@ -196,6 +213,33 @@ export class Model extends ModelBase {
     // console.log(line);
     // console.log(this.data);
   }
+
+  private modifyBackgroundImage(event: IBackgroundImageEvent) {
+    const backgroundImage: IBackgroundImage =
+      this.data.backgroundImages[event.widgetType];
+
+    if(event.finishVisible && event.finishImage) {
+      backgroundImage.finishVisible = true;
+      backgroundImage.finishImage = event.finishImage;
+      backgroundImage.finishPos = {x: 0, y: 0};
+      if(event.finishPos) {
+        backgroundImage.finishPos = JSON.parse(JSON.stringify(event.finishPos));
+      }
+    } else if(event.finishPos) {
+      backgroundImage.finishPos.x =
+        event.startPos.x + event.finishPos.x;
+      backgroundImage.finishPos.y =
+        event.startPos.y + event.finishPos.y;
+    } else {
+      backgroundImage.finishVisible = false;
+    }
+
+    this.controller.updateViewsBackgroundImage(backgroundImage);
+
+    // console.log(event);
+    // console.log(backgroundImage);
+    // console.log(this.data);
+  }
 }
 
 export class ModelMock extends ModelBase {
@@ -208,6 +252,10 @@ export class ModelMock extends ModelBase {
     this.lineEvents.push(event);
   }
 
+  public onBackgroundImageEvent(event: ILineEvent) {
+    //
+  }
+
   public getLine(lineId: string): ILine {
     return this.mockGetLineValue;
   }
@@ -215,7 +263,7 @@ export class ModelMock extends ModelBase {
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
     return this.mockNearestLine;
   }
-  
+
   public getSelectedLines(): {} {
     return this.mockGetSelectedLines;
   }
