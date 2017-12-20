@@ -35,6 +35,12 @@ export interface ILineEvent extends ILine {
   selecting?: boolean;
 }
 
+export interface ISpline {
+  // The curve goes through first and last point;
+  // middle points control its shape
+  point: IPoint[];
+}
+
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
   return (p1.x === p2.x && p1.y === p2.y && p1.z === p2.z);
 }
@@ -44,6 +50,46 @@ export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
     return (lp1 === lp2);
   }
   return (comparePoint(lp1.a, lp2.a) && comparePoint(lp1.b, lp2.b));
+}
+
+const cacheBinom = {};
+function binomialCoefficient(n: number, k: number): number {
+  const cn = cacheBinom[n];
+  if (cn && cn[k]) {
+    return cn[k];
+  } else {
+    cacheBinom[n] = {};
+  }
+
+  let ret = 1;
+  if (k > n / 2) {
+    ret = binomialCoefficient(n, n-k);
+  } else if (k > 0) {
+    ret = n * binomialCoefficient(n-1, k-1) / k;
+  }
+
+  cacheBinom[n][k] = ret;
+}
+
+export function bezierSpline(t: number, sp: ISpline, out: IPoint) {
+  const n = sp.point.length;
+
+  out.x = 0;
+  out.y = 0;
+  out.z = 0;
+
+  let rt = 1.0 - t;
+  for (let i = 0; i < sp.point.length; i++) {
+    rt *= rt;
+  }
+
+  for (let i = 0; i < sp.point.length; i++) {
+    out.x += binomialCoefficient(n, i) * rt * t * sp.point[i].x;
+    out.y += binomialCoefficient(n, i) * rt * t * sp.point[i].y;
+    out.z += binomialCoefficient(n, i) * rt * t * sp.point[i].z;
+    rt /= t;
+    t *= t;
+  }
 }
 
 // An inexpensive approximation of the distance between 2 lines on the X,Y plane

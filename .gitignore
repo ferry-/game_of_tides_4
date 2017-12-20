@@ -8,4 +8,6 @@ websocketpp/
 emscripten/
 googletest/
 frontend2/node_modules/
+frontend2/src/**/*.js
+frontend2/src/**/*.map
 secret*
