@@ -5,6 +5,10 @@ import {ViewBase} from "./view";
 
 const storageName = "shipYardCommandBuffers";
 
+export interface IHash<T> {
+  [key: string]: T;
+}
+
 interface ICommand {
   lineEvents?: ILineEvent[];
   backgroundImageEvents?: IBackgroundImageEvent[];
@@ -157,7 +161,7 @@ export abstract class ControllerBase {
   public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
     /**/
   }
-  public onButtonEvent(buttonLabel: string, value?: number) {/**/}
+  public onButtonEvent(buttonLabel: string, value?: any) {/**/}
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
   }

@@ -4,6 +4,7 @@ import {compareLinePos,
   ControllerBase,
   IBackgroundImage,
   IBackgroundImageEvent,
+  IHash,
   ILine,
   ILineEvent,
   ILinePos,
@@ -28,13 +29,17 @@ export abstract class ModelBase {
 
 }
 
+interface IModelData {
+  lines: IHash<ILine>;
+  backgroundImages: IHash<IBackgroundImage>;
+  selectedLines: IHash<boolean>;
+}
+
 export class Model extends ModelBase {
-  private data = {
+  private data: IModelData = {
     lines: {},
     backgroundImages: {},
     selectedLines: {},
-    curves: {},
-    selectedCurves: {},
   };
 
   public onLineEvent(event: ILineEvent) {
@@ -58,7 +63,7 @@ export class Model extends ModelBase {
     let nearest: IPoint;
     let mirrored = false;
     Object.getOwnPropertyNames(this.data.lines).forEach((lineName) => {
-      const testLine = this.data.lines[lineName];
+      const testLine: ILine = this.data.lines[lineName];
       if(line.id !== lineName) {
         if(testLine.finishPos.a.z === line.finishPos.a.z &&
             testLine.finishPos.b.z === line.finishPos.b.z) {

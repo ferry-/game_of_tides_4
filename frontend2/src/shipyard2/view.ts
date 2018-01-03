@@ -5,6 +5,7 @@ import {
   ControllerBase,
   IBackgroundImage,
   IBackgroundImageEvent,
+  IHash,
   ILine,
   ILineEvent,
   ILinePos,
@@ -14,10 +15,6 @@ import {
   MockController,
   subtractPoint} from "./controller";
 import {DropDown, Modal} from "./modal";
-
-interface IHash {
-  [key: string]: any;
-}
 
 export class ViewBase {
   protected static widgetIdConter: number = 0;
@@ -118,7 +115,7 @@ export abstract class ViewSection extends ViewBase {
   public width: number;
   public height: number;
   protected layer: Konva.Layer;
-  protected lines: IHash = {};
+  protected lines: IHash<Line> = {};
   protected mouseDown: boolean = false;
   protected mouseDragging: Konva.Shape = null;
   protected mouseDraggingStartPos: ILinePos = null;
@@ -856,7 +853,7 @@ export class ViewLengthSection extends ViewSection {
 
 export class MockViewCrossSection extends ViewCrossSection {
   public layer: Konva.Layer;
-  public lines: IHash = {};
+  public lines: IHash<Line> = {};
   public mouseDown: boolean = false;
   public mouseDragging: Konva.Shape = null;
   public mouseDraggingStartPos: ILinePos = null;
@@ -882,8 +879,8 @@ export class MockViewCrossSection extends ViewCrossSection {
 }
 
 export class ViewMock extends ViewBase {
-  public buttonValues: IHash = {};
-  public buttonStates: IHash = {};
+  public buttonValues: IHash<any> = {};
+  public buttonStates: IHash<any> = {};
 
   public setButtonValue(buttonLabel: string, value: number) {
     this.buttonValues[buttonLabel] = Boolean(value);
@@ -1013,15 +1010,16 @@ export class ViewToolbar extends ViewBase {
   private onClick(event: MouseEvent) {
     const button = event.currentTarget as Element;
     const buttonLabel = button.getAttribute("label");
-    if(event.srcElement && event.srcElement.type &&
-       event.srcElement.type === "checkbox") {
-      this.controller.onButtonEvent(buttonLabel, event.srcElement.checked);
-      return;
-    }
-    if(event.srcElement && event.srcElement.type &&
-       event.srcElement.type === "text") {
-      this.controller.onButtonEvent(buttonLabel, event.srcElement.value);
-      return;
+    if(event.srcElement) {
+      const srcElement = event.srcElement as HTMLInputElement;
+      if (srcElement.type === "checkbox") {
+        this.controller.onButtonEvent(buttonLabel, srcElement.checked);
+        return;
+      }
+      if(srcElement.type === "text") {
+        this.controller.onButtonEvent(buttonLabel, srcElement.value);
+        return;
+      }
     }
     this.controller.onButtonEvent(buttonLabel);
   }
