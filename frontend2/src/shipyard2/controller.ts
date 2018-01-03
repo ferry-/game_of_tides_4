@@ -39,23 +39,77 @@ export interface IPoint {
   z: number;  // Fore/Aft axis.
 }
 
-export interface ILinePos {
-  a: IPoint;
-  b: IPoint;
+export class LinePos {
+  public static make(a: IPoint, b: IPoint): LinePos {
+    const aa = (a == null)? null : { x: a.x, y: a.y, z: a.z };
+    const bb = (b == null)? null : { x: b.x, y: b.y, z: b.z };
+    const pts = [aa, bb];
+    return new LinePos(pts);
+  }
+
+  public pts: IPoint[];
+
+  constructor(pts: IPoint[]) {
+    this.pts = pts;
+  }
+
+  /*constructor(a: IPoint, b: IPoint) {
+    // deep copy
+    const aa = (a == null)? null : { x: a.x, y: a.y, z: a.z };
+    const bb = (b == null)? null : { x: b.x, y: b.y, z: b.z };
+    this.pts = [ aa, bb ];
+  }*/
+
+  /*constructor(pts: IPoint[]) {
+    this.pts.length = pts.length;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      this.pts[i] = {x: p.x, y: p.y, z: p.z};
+    }
+  }*/
+
+  public get order(): number {
+    return this.pts.length;
+  }
+
+  // First point
+  public get a(): IPoint {
+    console.assert(this.order >= 2);
+    return this.pts[0];
+  }
+
+  public set a(p: IPoint) {
+    console.assert(this.order >= 2);
+    this.pts[0] = p;
+  }
+
+  // Last point
+  public get b(): IPoint {
+    console.assert(this.order >= 2);
+    return this.pts[this.pts.length-1];
+  }
+
+  public set b(p: IPoint) {
+    console.assert(this.order >= 2);
+    this.pts[this.pts.length-1] = p;
+  }
 }
 
+// Current state of line
 export interface ILine {
   id: string;
-  finishPos?: ILinePos;
+  finishPos?: LinePos;
   highlight?: boolean;
   mirrored?: boolean;
   selected?: boolean;
 }
 
+// State change of a line (the inherited )
 export interface ILineEvent extends ILine {
   sequence: string;         // Unique id for series of related commands.
   widgetType?: string;      // Command originating widget type.
-  startPos?: ILinePos;      // Position before command executed.
+  startPos?: LinePos;       // Position before command executed.
+                            // finishPos is the result of this event.
   toggleMirrored?: boolean; // Change mirroring status.
   selecting?: boolean;      // Change selected status.
 }
@@ -74,11 +128,34 @@ export function subtractPoint(p1: IPoint, p2: IPoint): IPoint {
   return {x: p1.x - p2.x, y: p1.y - p2.y, z: p1.z - p2.z};
 }
 
-export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
+export function compareLinePos(lp1: LinePos, lp2: LinePos): boolean {
   if(lp1 === null || lp2 === null) {
     return (lp1 === lp2);
   }
-  return (comparePoint(lp1.a, lp2.a) && comparePoint(lp1.b, lp2.b));
+  if(lp1.pts.length !== lp2.pts.length) {
+    return false;
+  }
+  for (let i = 0; i < lp1.pts.length; i++) {
+    if(!comparePoint(lp1.pts[i], lp2.pts[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// An inexpensive approximation of the distance between 2 lines on the X,Y plane
+export function approxDistLinePos(lp1: LinePos, lp2: LinePos): number {
+  // Ignore inner points, just compare start and end positions
+  return Math.abs(lp1.a.x - lp2.a.x) + Math.abs(lp1.a.y - lp2.a.y) +
+  Math.abs(lp1.b.x - lp2.b.x) + Math.abs(lp1.b.y - lp2.b.y);
+}
+
+export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
+  return (
+    e1.id === e2.id &&
+    compareLinePos(e1.startPos, e2.startPos) &&
+    compareLinePos(e1.finishPos, e2.finishPos)
+  );
 }
 
 const cacheBinom = {};
@@ -100,13 +177,15 @@ function binomialCoefficient(n: number, k: number): number {
   cacheBinom[n][k] = ret;
 }
 
-export function bezierSpline(t: number, sp: ISpline, out: IPoint) {
+export function evalBeizer(t: number, sp: ISpline, out: IPoint) {
   const n = sp.point.length;
 
   out.x = 0;
   out.y = 0;
   out.z = 0;
 
+  // n is the order of the curve, equal to sp.points.length
+  // B(t) = sum over i=0..n ( binom(n, i) * (1-t)^(n-i) * t^i * P_i )
   let rt = 1.0 - t;
   for (let i = 0; i < sp.point.length; i++) {
     rt *= rt;
@@ -119,20 +198,6 @@ export function bezierSpline(t: number, sp: ISpline, out: IPoint) {
     rt /= t;
     t *= t;
   }
-}
-
-// An inexpensive approximation of the distance between 2 lines on the X,Y plane
-export function approxDistLinePos(lp1: ILinePos, lp2: ILinePos): number {
-  return Math.abs(lp1.a.x - lp2.a.x) + Math.abs(lp1.a.y - lp2.a.y) +
-    Math.abs(lp1.b.x - lp2.b.x) + Math.abs(lp1.b.y - lp2.b.y);
-}
-
-export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
-  return (
-    e1.id === e2.id &&
-    compareLinePos(e1.startPos, e2.startPos) &&
-    compareLinePos(e1.finishPos, e2.finishPos)
-  );
 }
 
 export abstract class ControllerBase {

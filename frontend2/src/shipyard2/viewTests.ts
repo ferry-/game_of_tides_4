@@ -2,7 +2,7 @@
 
 import * as Konva from "konva";
 import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
-import {comparePoint, MockController} from "./controller";
+import {comparePoint, LinePos, MockController} from "./controller";
 import {Line, MockViewCrossSection, ViewCanvas} from "./view";
 
 export const viewOnMouseDown = {
@@ -164,7 +164,7 @@ export const viewOnMouseDown = {
 
     view.controller.getLineReturnValue = {
       id: "test_line_pos",
-      finishPos: {a: mockLineEndA, b: mockLineEndB},
+      finishPos: LinePos.make(mockLineEndA, mockLineEndB),
     };
 
     view.onMouseMove(event);
