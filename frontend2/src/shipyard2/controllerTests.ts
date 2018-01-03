@@ -6,8 +6,8 @@ import {
   compareLinePos,
   ILine,
   ILineEvent,
-  ILinePos,
   IPoint,
+  LinePos,
   TestController,
 } from "./controller";
 import {ModelMock} from "./model";
@@ -191,10 +191,7 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePos: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: null,
-    };
+    const linePos = LinePos.make({x:1, y:2, z:3}, null);
 
     // Perform action under test.
     widget1.simulateLineEvent(null, "sequence_1", linePos, null);
@@ -224,15 +221,9 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: {x:11, y:22, z:33},
-    };
+    const linePosStart = LinePos.make({x:1, y:2, z:3}, {x:11, y:22, z:33});
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Perform action under test.
     widget1.simulateLineEvent(
@@ -254,15 +245,9 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: {x:11, y:22, z:33},
-    };
+    const linePosStart = LinePos.make({x:1, y:2, z:3}, {x:11, y:22, z:33});
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Perform action under test.
     // Although this is moving a line that does not actually exist on the model,
@@ -284,10 +269,7 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: {x:11, y:22, z:33},
-    };
+    const linePosStart = LinePos.make({x:1, y:2, z:3}, {x:11, y:22, z:33});
 
     // Perform action under test.
     // Although this is deleting a line that does not actually exist on the
@@ -308,10 +290,7 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Perform action under test.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
@@ -330,10 +309,7 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Add some lines.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
@@ -354,20 +330,11 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish1: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:11},
-    };
+    const linePosFinish1 = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:11});
 
-    const linePosFinish2: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:22},
-    };
+    const linePosFinish2 = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:22});
 
-    const linePosFinish3: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:33},
-    };
+    const linePosFinish3 = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:33});
 
     // Add some lines.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish1);
@@ -395,10 +362,7 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePos: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePos = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Insert new line.
     widget1.simulateLineEvent("drawnLine_1", "sequence_2", linePos, linePos);
@@ -422,14 +386,8 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:24, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
-    const linePosFinish: ILinePos = {
-      a: {x:24, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosStart = LinePos.make({x:24, y:25, z:66}, {x:44, y:55, z:66});
+    const linePosFinish = LinePos.make({x:24, y:25, z:66}, {x:44, y:55, z:66});
 
     // Force model to return a specific result.
     model.mockGetLineValue = {
@@ -448,10 +406,8 @@ export const controllerLineEventTests = {
                                        model.lineEvents[0].finishPos));
 
     // Set a nearby line to snap() to.
-    const linePosNearby: ILinePos = {
-      a: {x:23, y:24, z:66},
-      b: {x:144, y:155, z:66},
-    };
+    const linePosNearby = LinePos.make({x:23, y:24, z:66},
+                                       {x:144, y:155, z:66});
     model.mockNearestLine = {point: linePosNearby.a, mirrored: false};
 
     // Modify line.
@@ -461,18 +417,15 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
+    TrackAsserts.assert(compareLinePos(LinePos.make(linePosNearby.a,
+                                                   linePosFinish.b),
                                        model.lineEvents[1].finishPos));
 
     // Set a nearby mirrored line to snap() to.
-    const linePosMirrorNear: ILinePos = {
-      a: {x:124, y:125, z:166},
-      b: {x:-43, y:55, z:66},
-    };
-    const linePosMirrorNearPartner: ILinePos = {
-      a: {x:124, y:125, z:166},
-      b: {x:43, y:55, z:66},
-    };
+    const linePosMirrorNear = LinePos.make({x:124, y:125, z:166},
+                                          {x:-43, y:55, z:66});
+    const linePosMirrorNearPartner = LinePos.make({x:124, y:125, z:166},
+                                                 {x:43, y:55, z:66});
     model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: false};
 
     // Modify line.
@@ -482,8 +435,8 @@ export const controllerLineEventTests = {
     // Confirm correct.
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
-                                        b: linePosMirrorNearPartner.b},
+    TrackAsserts.assert(compareLinePos(LinePos.make(linePosFinish.a,
+                                        linePosMirrorNearPartner.b),
                                        model.lineEvents[2].finishPos));
   },
 
@@ -496,14 +449,8 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:24, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
-    const linePosFinish: ILinePos = {
-      a: {x:24, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosStart = LinePos.make({x:24, y:25, z:66}, {x:44, y:55, z:66});
+    const linePosFinish = LinePos.make({x:24, y:25, z:66}, {x:44, y:55, z:66});
 
     // Force model to return a specific result.
     model.mockGetLineValue = {
@@ -522,10 +469,8 @@ export const controllerLineEventTests = {
                                        model.lineEvents[0].finishPos));
 
     // Set a nearby line to snap() to.
-    const linePosNearby: ILinePos = {
-      a: {x:23, y:24, z:66},
-      b: {x:144, y:155, z:66},
-    };
+    const linePosNearby = LinePos.make({x:23, y:24, z:66},
+                                       {x:144, y:155, z:66});
     model.mockNearestLine = {point: linePosNearby.a, mirrored: true};
 
     // Modify line.
@@ -535,18 +480,15 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
+    TrackAsserts.assert(compareLinePos(LinePos.make(linePosNearby.a,
+                                        linePosFinish.b),
                                        model.lineEvents[1].finishPos));
 
     // Set a nearby mirrored line to snap() to.
-    const linePosMirrorNear: ILinePos = {
-      a: {x:124, y:125, z:166},
-      b: {x:-43, y:55, z:66},
-    };
-    const linePosMirrorNearPartner: ILinePos = {
-      a: {x:124, y:125, z:166},
-      b: {x:43, y:55, z:66},
-    };
+    const linePosMirrorNear = LinePos.make({x:124, y:125, z:166},
+                                          {x:-43, y:55, z:66});
+    const linePosMirrorNearPartner = LinePos.make({x:124, y:125, z:166},
+                                                 {x:43, y:55, z:66});
     model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: true};
 
     // Modify line.
@@ -556,8 +498,8 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
-                                        b: linePosMirrorNearPartner.b},
+    TrackAsserts.assert(compareLinePos(LinePos.make(linePosFinish.a,
+                                        linePosMirrorNearPartner.b),
                                        model.lineEvents[2].finishPos));
   },
 
@@ -570,20 +512,12 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:24, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:25, z:66},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosStart = LinePos.make({x:24, y:25, z:66}, {x:44, y:55, z:66});
+    const linePosFinish = LinePos.make({x:4, y:25, z:66}, {x:44, y:55, z:66});
 
     // Set a line too far away to snap() to.
-    const linePosNearby: ILinePos = {
-      a: {x:223, y:224, z:66},
-      b: {x:244, y:255, z:66},
-    };
+    const linePosNearby = LinePos.make({x:223, y:224, z:66},
+                                      {x:244, y:255, z:66});
     model.mockNearestLine = {point: linePosNearby.a, mirrored: true};
 
     // Force model to return non-mirroring result.
@@ -618,8 +552,8 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: {x:0, y:25, z:66},
-                                        b: linePosFinish.b},
+    TrackAsserts.assert(compareLinePos(LinePos.make({x:0, y:25, z:66},
+                                        linePosFinish.b),
                                        model.lineEvents[1].finishPos));
   },
 
@@ -635,10 +569,7 @@ export const controllerCommandHistoryTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Add some lines.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
@@ -709,10 +640,7 @@ export const controllerCommandHistoryTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Add some lines.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
@@ -792,10 +720,7 @@ export const controllerCommandHistoryTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const linePosFinish = LinePos.make({x:4, y:5, z:6}, {x:44, y:55, z:66});
 
     // Add some lines.
     widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);

@@ -7,8 +7,8 @@ import {compareLinePos,
   IHash,
   ILine,
   ILineEvent,
-  ILinePos,
-  IPoint} from "./controller";
+  IPoint,
+  LinePos} from "./controller";
 
 export abstract class ModelBase {
   protected controller: ControllerBase;
@@ -175,7 +175,7 @@ export class Model extends ModelBase {
       this.deSelectAll();
       line.selected = true;
       this.data.selectedLines[line.id] = true;
-      line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
+      line.finishPos = new LinePos(event.finishPos.pts.slice());
     } else if(event.highlight === undefined &&
               event.toggleMirrored === undefined &&
               event.selecting === undefined) {
