@@ -1,5 +1,18 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import * as testEvents from "./events";
+import {
+  EventBase,
+  EventLineDelete,
+  EventLineHighlight,
+  EventLineMirror,
+  EventLineModify,
+  EventLineNew,
+  EventLineSelect,
+  EventUiInputElement,
+  EventUiMouseDrag,
+  EventUiMouseMove,
+  LineEnd} from "./events";
 import {ModelBase} from "./model";
 import {ViewBase} from "./view";
 
@@ -10,7 +23,7 @@ export interface IHash<T> {
 }
 
 interface ICommand {
-  lineEvents?: ILineEvent[];
+  events?: EventBase[];
   backgroundImageEvents?: IBackgroundImageEvent[];
 }
 
@@ -98,7 +111,7 @@ export class LinePos {
 // Current state of line
 export interface ILine {
   id: string;
-  finishPos?: LinePos;
+  finishPos: LinePos;
   highlight?: boolean;
   mirrored?: boolean;
   selected?: boolean;
@@ -153,8 +166,8 @@ export function approxDistLinePos(lp1: LinePos, lp2: LinePos): number {
 export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
   return (
     e1.id === e2.id &&
-    compareLinePos(e1.startPos, e2.startPos) &&
-    compareLinePos(e1.finishPos, e2.finishPos)
+    comparePoint(e1.startPoint, e2.startPoint) &&
+    comparePoint(e1.finishPoint, e2.finishPoint)
   );
 }
 
@@ -219,14 +232,22 @@ export abstract class ControllerBase {
     });
   }
 
-  public onLineEvent(lineEvent: ILineEvent,
-                     backgroundImageEvent?: IBackgroundImageEvent): void {/**/}
+  public onEvent(event: EventBase) {
+    console.error("Undefined method");
+  }
+    /*public onLineEvent(
+    lineEvent: ILineEvent,
+    backgroundImageEvent?: IBackgroundImageEvent): void {
+    console.error("Undefined method");
+  }*/
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {/**/}
   public updateViews(line: ILine): void {/**/}
   public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
     /**/
   }
-  public onButtonEvent(buttonLabel: string, value?: any) {/**/}
+  public onButtonEvent(event: EventUiInputElement) {
+    console.error("Unimplemented method");
+  }
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
   }
@@ -244,15 +265,15 @@ export class Controller extends ControllerBase {
   private buttonStates = {
     selectLine: {
       value: false,
-      clear: ["addLine", "backgroundImage", "fileOps"],
+      clear: ["modifyLine", "backgroundImage", "fileOps"],
       preventUnClick: true},
-    addLine: {
+    modifyLine: {
       value: true,
       clear: ["selectLine", "backgroundImage", "fileOps"],
       preventUnClick: true},
     backgroundImage: {
       value: false,
-      clear: ["addLine", "selectLine", "fileOps"],
+      clear: ["modifyLine", "selectLine", "fileOps"],
       preventUnClick: true},
     allLayers: {value: false, clear: ["fileOps"]},
     selected_rib: {clear: ["fileOps"]},
@@ -277,22 +298,62 @@ export class Controller extends ControllerBase {
     this.setButtonStates();
   }
 
-  public onButtonEvent(buttonLabel: string, value?: any) {
-    // this.logger.log(buttonLabel, value);
-    value = this.updateButton(buttonLabel, value);
+  public onEvent(event: EventBase) {
+    switch(true) {
+      case event.constructor.name === "EventUiInputElement":
+        this.onButtonEvent(event as EventUiInputElement);
+        break;
 
-    switch (buttonLabel) {
+      case event.constructor.name === "EventUiSelectRib":
+        this.updateButton("selected_rib", event.z);
+        break;
+
+      case event.constructor.name === "EventUiMouseDrag" &&
+           Boolean(this.buttonStates.modifyLine.value):
+        this.onUiMouseDragModifyLine(event as EventUiMouseDrag);
+        break;
+      case event.constructor.name === "EventUiMouseDrag" &&
+           Boolean(this.buttonStates.selectLine.value):
+        this.onUiMouseDragSelect(event as EventUiMouseDrag);
+        break;
+      case event.constructor.name === "EventUiMouseDrag" &&
+           Boolean(this.buttonStates.backgroundImage.value):
+        console.log("TODO: EventUiMouseDrag backgroundImage");
+        break;
+
+      case event.constructor.name === "EventUiMouseMove" &&
+           Boolean(this.buttonStates.modifyLine.value):
+        this.onUiMouseMove(event as EventUiMouseMove);
+        break;
+      case event.constructor.name === "EventUiMouseMove" &&
+           Boolean(this.buttonStates.selectLine.value):
+        this.onUiMouseMove(event as EventUiMouseMove);
+        break;
+      case event.constructor.name === "EventUiMouseMove" &&
+           Boolean(this.buttonStates.backgroundImage.value):
+        console.log("TODO: EventUiMouseMove backgroundImage");
+        break;
+
+      default:
+        console.log("Unknown event:", event);
+    }
+  }
+
+  // TODO Protected?
+  public onButtonEvent(event: EventUiInputElement) {
+    // this.logger.log(event);
+    let value: any = event.valueText;
+    if(value === undefined) {
+      value = event.valueBool;
+    }
+    value = this.updateButton(event.label, value);
+
+    switch (event.label) {
       case "undo":
         this.undoCommand();
         break;
       case "redo":
         this.redoCommand();
-        break;
-      case "clear":
-        break;
-      case "selectLine":
-        break;
-      case "addLine":
         break;
       case "delete":
         this.deleteSelectedLines();
@@ -316,113 +377,24 @@ export class Controller extends ControllerBase {
         break;
       case "fileOpsSave":
         this.saveCommands(value);
-        this.updateButton(buttonLabel, value);
+        this.updateButton(event.label, value);
         break;
       case "fileOpsLoad":
         this.loadCommands(value);
         break;
       case "fileOpsDelete":
         this.deleteCommands(value);
-        this.updateButton(buttonLabel, value);
+        this.updateButton(event.label, value);
         break;
       case "fileOpsNew":
         this.newCommands();
         break;
-      case "selected_rib":
-        this.model.deSelectAll();
-        break;
       case "clearSelectCursor":
         break;
       default:
-        this.logger.warn("Invalid buttonLabel:", buttonLabel);
+        this.logger.warn("Invalid buttonLabel:", event.label);
         return;
     }
-  }
-
-  public onLineEvent(lineEvent: ILineEvent,
-                     backgroundImageEvent?: IBackgroundImageEvent) {
-    if(!lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos) {
-      this.logger.warn("No id, startPos or finishPos for line: ", lineEvent.id);
-      return;
-    }
-
-    if(lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos &&
-         lineEvent.highlight === undefined) {
-      this.logger.warn("No startPos, finishPos or options for line: ",
-                       lineEvent.id);
-      return;
-    }
-
-    if(lineEvent.startPos &&
-       (!lineEvent.startPos.a || !lineEvent.startPos.b)) {
-      this.logger.warn(
-        "Missing endpoint for startPos of line: ", lineEvent.id);
-      return;
-    }
-    if(lineEvent.finishPos &&
-       (!lineEvent.finishPos.a || !lineEvent.finishPos.b)) {
-      this.logger.warn(
-        "Missing endpoint for endPos of line: ", lineEvent.id);
-      return;
-    }
-
-    if(!lineEvent.id) {
-      if(lineEvent.startPos) {
-        this.logger.warn(
-          "No id specified for line being moved or deleted.");
-        return;
-      }
-      // No id and no lineEvent.startPos implies this is a new line.
-      if(!lineEvent.sequence.startsWith("sequence_")) {
-        // TODO UnitTest for this case.
-        this.logger.warn("No id or sequence specified.");
-        return;
-      }
-      lineEvent.id = "drawnLine_" + lineEvent.sequence.slice(9);
-    }
-
-    if(this.buttonStates.selectLine.value &&
-       lineEvent.id && lineEvent.startPos &&
-       approxDistLinePos(lineEvent.startPos, lineEvent.finishPos) < 10) {
-      // Line has been clicked on. Toggle select state.
-      lineEvent.selecting = true;
-      lineEvent.startPos = null;
-      lineEvent.finishPos = null;
-    } else if(lineEvent.selected) {
-      lineEvent.selecting = true;
-      lineEvent.startPos = null;
-      lineEvent.finishPos = null;
-    } else if(this.buttonStates.selectLine.value &&
-              lineEvent.startPos &&
-              lineEvent.id) {
-      console.log("TODO: drag selected lines", lineEvent);
-      return;
-    } else if(this.buttonStates.selectLine.value && lineEvent.finishPos) {
-      // Box to select lines.
-      this.model.deSelectAll();
-      this.views.forEach((view) => {
-        view.drawSelectCursor(lineEvent.finishPos.a, lineEvent.finishPos.b);
-      });
-      return;
-    } else if(this.buttonStates.backgroundImage.value) {
-      console.assert(Boolean(backgroundImageEvent));
-    } else {
-      if(lineEvent.finishPos) {
-        // Ensure both endpoints are in the same plane.
-        lineEvent.finishPos.b.z = lineEvent.finishPos.a.z;
-
-        this.snap(lineEvent);
-      }
-    }
-
-    const command: ICommand = {};
-    if(this.buttonStates.addLine.value) {
-      command.lineEvents = [lineEvent];
-    } else if(this.buttonStates.backgroundImage.value && backgroundImageEvent) {
-      command.backgroundImageEvents = [backgroundImageEvent];
-    }
-    this.recordCommand(command);
-    this.performCommand(null, command);
   }
 
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {
@@ -485,6 +457,7 @@ export class Controller extends ControllerBase {
     return value;
   }
 
+  // Called by Model.
   public updateViews(line: ILine) {
     this.views.forEach((view) => {
       view.updateLine(line);
@@ -591,6 +564,7 @@ export class Controller extends ControllerBase {
     // window.alert(data);
     if(data) {
       this.commands = JSON.parse(data);
+      this.commands = this.applyClasses(this.commands);
     }
     this.commandPointer = 0;
     if(this.commands === undefined || this.commands === null) {
@@ -599,6 +573,75 @@ export class Controller extends ControllerBase {
     while(this.commandPointer < this.commands.length) {
       this.redoCommand();
     }
+  }
+
+  private onUiMouseDragModifyLine(event: EventUiMouseDrag) {
+    let newLine = false;
+
+    if(!event.lineId && (!event.startPoint || !event.finishPoint)) {
+      this.logger.warn(
+        "Missing startPoint or finishPoint for new line: ", event.lineId);
+      return;
+    }
+
+    if(event.lineId && (!event.startPoint || !event.finishPoint)) {
+      this.logger.warn(
+        "Missing startPoint or finishPoint for modified line: ", event.lineId);
+      return;
+    }
+
+    if(event.lineId &&
+       (event.lineEnd === undefined || event.lineEnd === null)) {
+      this.logger.warn(
+        "Modified end not specified on line: ", event.lineId);
+      return;
+    }
+
+    if(!event.lineId) {
+      if(!event.sequence.startsWith("sequence_")) {
+        // TODO UnitTest for this case.
+        this.logger.warn("No lineId or sequence specified.");
+        return;
+      }
+      event.lineId = "drawnLine_" + event.sequence.slice(9);
+      event.lineEnd = LineEnd.B1;
+      console.log("New line!!", event.lineId, event.lineEnd);
+      newLine = true;
+    }
+
+    // this.snap(event);  // TODO Fix snap().
+
+    const command: ICommand = {};
+    command.events =
+      newLine ? [new EventLineNew(event)]:[new EventLineModify(event)];
+    this.recordCommand(command);
+    this.performCommand(null, command);
+  }
+
+  private onUiMouseDragSelect(event: EventUiMouseDrag) {
+    if(!event.lineId) {
+      this.logger.warn("No lineId when selecting line");
+      return;
+    }
+    const selectEvent = new EventLineSelect({
+      widgetType: event.widgetType,
+      lineId: event.lineId,
+    });
+    const command: ICommand = {};
+    command.events = [selectEvent];
+    this.recordCommand(command);
+    this.performCommand(null, command);
+  }
+
+  private onUiMouseMove(event: EventUiMouseMove) {
+    const highlightEvent = new EventLineHighlight({
+      widgetType: event.widgetType,
+      lineId: event.lineId,
+    });
+    const command: ICommand = {};
+    command.events = [highlightEvent];
+    this.recordCommand(command);
+    this.performCommand(null, command);
   }
 
   private setButtonStates() {
@@ -622,8 +665,8 @@ export class Controller extends ControllerBase {
       return false;
     }
     let returnVal = false;
-    const events1: any = command1.lineEvents || command1.backgroundImageEvents;
-    const events2: any = command2.lineEvents || command2.backgroundImageEvents;
+    const events1: any = command1.events || command1.backgroundImageEvents;
+    const events2: any = command2.events || command2.backgroundImageEvents;
     events1.forEach((event1) => {
       events2.forEach((event2) => {
         if(event1.sequence === event2.sequence) {
@@ -636,17 +679,13 @@ export class Controller extends ControllerBase {
 
   private loggableCommand(command: ICommand): boolean {
     let returnVal = false;
-    if(command.lineEvents) {
-      command.lineEvents.forEach((lineEvent) => {
-        if(lineEvent.selecting) {
-          returnVal = returnVal ||
-            (Boolean(lineEvent.startPos) && !lineEvent.id);
-        } else {
-          returnVal = returnVal ||
-            Boolean(lineEvent.startPos) ||
-            Boolean(lineEvent.finishPos) ||
-            lineEvent.toggleMirrored !== undefined;
-        }
+    if(command.events) {
+      command.events.forEach((lineEvent) => {
+        returnVal = returnVal ||
+          ["EventLineModify",
+            "EventLineNew",
+            "EventLineDelete",
+            "EventLineMirror"].includes(lineEvent.constructor.name);
       });
     }
     if(command.backgroundImageEvents) {
@@ -681,15 +720,25 @@ export class Controller extends ControllerBase {
       command = this.commands[commandIndex];
     }
 
-    // console.log(commandIndex, command);
-
-    if(command.lineEvents) {
-      command.lineEvents.forEach((event) => {
-        this.views.forEach((view) => {
-          view.syncSequence(event.id);
-        });
-
-        this.model.onLineEvent(event);
+    if(command.events) {
+      command.events.forEach((event) => {
+        switch(event.constructor.name) {
+          case "EventLineNew":
+          case "EventLineModify":
+            this.views.forEach((view) => {
+              view.syncSequence((event as EventLineModify).lineId);
+            });
+            this.model.onLineEvent(event);
+            break;
+          case "EventLineSelect":
+          case "EventLineHighlight":
+          case "EventLineMirror":
+          case "EventLineDelete":
+            this.model.onLineEvent(event);
+            break;
+          default:
+            console.log("Unknown command event:", event);
+        }
       });
     }
     if(command.backgroundImageEvents) {
@@ -716,18 +765,35 @@ export class Controller extends ControllerBase {
     }
 
     const command = this.commands[commandIndex];
-    if(command.lineEvents) {
-      command.lineEvents.forEach((lineEvent) => {
-        console.log(lineEvent);
-        const reverseLineEvent = {
-          id: lineEvent.id,
-          startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
-          finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
-          toggleMirrored: lineEvent.toggleMirrored,
-          // TODO Make test for interaction between undo and mirrored.
-          mirrored: lineEvent.mirrored,
-        };
-        this.model.onLineEvent(reverseLineEvent);
+    if(command.events) {
+      command.events.forEach((event) => {
+        switch(event.constructor.name) {
+          case "EventLineModify":
+            const lineEvent = new EventLineModify(event);
+            const reverseLineEvent = new EventLineModify({
+              widgetType: lineEvent.widgetType,
+              sequence: lineEvent.sequence,
+              lineId: lineEvent.lineId,
+              lineEnd: lineEvent.lineEnd,
+              startPoint: JSON.parse(JSON.stringify(lineEvent.finishPoint)),
+              finishPoint: JSON.parse(JSON.stringify(lineEvent.startPoint)),
+              // toggleMirrored: event.toggleMirrored,
+              // TODO Make test for interaction between undo and mirrored.
+              // mirrored: event.mirrored,
+            });
+            this.model.onLineEvent(reverseLineEvent);
+            break;
+          case "EventLineNew":
+            const reverseLineEvent = new EventLineDelete({
+              widgetType: event.widgetType,
+              lineId: event.lineId,
+            });
+            this.model.onLineEvent(reverseLineEvent);
+            break;
+          default:
+            console.error("Undoing unknown Event:", event);
+            break;
+        }
       });
     }
     if(command.backgroundImageEvents) {
@@ -769,21 +835,18 @@ export class Controller extends ControllerBase {
   private deleteSelectedLines() {
     this.newSequence();
     const command: ICommand = {
-      lineEvents: [],
+      events: [],
     };
 
     const selectedLines = this.model.getSelectedLines();
     for(const lineId in selectedLines) {
       if(selectedLines.hasOwnProperty(lineId)) {
         const line = this.model.getLine(lineId);
-        const lineEvent = {
-          sequence: this.sequence,
-          id: lineId,
-          startPos: line.finishPos,
-          finishPos: null,
-          mirrored: line.mirrored,
-        };
-        command.lineEvents.push(lineEvent);
+        const event = new EventLineDelete({
+          widgetType: "TODO",
+          lineId,
+        });
+        command.events.push(event);
       }
     }
 
@@ -794,21 +857,18 @@ export class Controller extends ControllerBase {
   private mirrorSelectedLines() {
     this.newSequence();
     const command: ICommand = {
-      lineEvents: [],
+      events: [],
     };
 
     const selectedLines = this.model.getSelectedLines();
     for(const lineId in selectedLines) {
       if(selectedLines.hasOwnProperty(lineId)) {
         const line = this.model.getLine(lineId);
-        const lineEvent = {
-          sequence: this.sequence,
-          id: lineId,
-          startPos: null,
-          finishPos: null,
-          toggleMirrored: true,
-        };
-        command.lineEvents.push(lineEvent);
+        const event = new EventLineMirror({
+          widgetType: "TODO",
+          lineId,
+        });
+        command.events.push(event);
       }
     }
 
@@ -823,7 +883,7 @@ export class Controller extends ControllerBase {
     }
     allCommandBuffers[filename] = this.commands;
     localStorage.setItem(storageName, JSON.stringify(allCommandBuffers));
-    console.log(allCommandBuffers);
+    console.log(JSON.stringify(allCommandBuffers, null, "  "));
   }
 
   private deleteCommands(filename: string) {
@@ -845,6 +905,20 @@ export class Controller extends ControllerBase {
     // console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
+  }
+
+  /* Parse events for __name__ and convert to Event Classes. */
+  private applyClasses(data) {
+    const returnData = [];
+    data.forEach((command) => {
+      const newCommand = {events: []};
+      returnData.push(newCommand);
+      command.events.forEach((event) => {
+        const cloneObj = new testEvents[event.__name__](event);
+        newCommand.events.push(cloneObj);
+      });
+    });
+    return returnData;
   }
 
   private newCommands() {
@@ -881,7 +955,7 @@ export class MockController extends ControllerBase {
     this.commands = [];
   }
 
-  public onLineEvent(lineEvent: ILineEvent): void {
+  public onEvent(lineEvent: EventBase): void {
     this.commands.push(lineEvent);
   }
 
