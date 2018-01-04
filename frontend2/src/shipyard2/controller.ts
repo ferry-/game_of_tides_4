@@ -12,6 +12,7 @@ import {
   EventUiInputElement,
   EventUiMouseDrag,
   EventUiMouseMove,
+  EventUiSelectRib,
   LineEnd} from "./events";
 import {ModelBase} from "./model";
 import {ViewBase} from "./view";
@@ -163,9 +164,10 @@ export function approxDistLinePos(lp1: LinePos, lp2: LinePos): number {
   Math.abs(lp1.b.x - lp2.b.x) + Math.abs(lp1.b.y - lp2.b.y);
 }
 
-export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
+export function compareLineEvent(e1: EventLineModify,
+                                 e2: EventLineModify): boolean {
   return (
-    e1.id === e2.id &&
+    e1.lineId === e2.lineId &&
     comparePoint(e1.startPoint, e2.startPoint) &&
     comparePoint(e1.finishPoint, e2.finishPoint)
   );
@@ -305,7 +307,7 @@ export class Controller extends ControllerBase {
         break;
 
       case event.constructor.name === "EventUiSelectRib":
-        this.updateButton("selected_rib", event.z);
+        this.updateButton("selected_rib", (event as EventUiSelectRib).z);
         break;
 
       case event.constructor.name === "EventUiMouseDrag" &&
@@ -765,12 +767,14 @@ export class Controller extends ControllerBase {
     }
 
     const command = this.commands[commandIndex];
+    let lineEvent;
+    let reverseLineEvent;
     if(command.events) {
       command.events.forEach((event) => {
         switch(event.constructor.name) {
           case "EventLineModify":
-            const lineEvent = new EventLineModify(event);
-            const reverseLineEvent = new EventLineModify({
+            lineEvent = new EventLineModify(event as EventLineModify);
+            reverseLineEvent = new EventLineModify({
               widgetType: lineEvent.widgetType,
               sequence: lineEvent.sequence,
               lineId: lineEvent.lineId,
@@ -784,9 +788,10 @@ export class Controller extends ControllerBase {
             this.model.onLineEvent(reverseLineEvent);
             break;
           case "EventLineNew":
-            const reverseLineEvent = new EventLineDelete({
-              widgetType: event.widgetType,
-              lineId: event.lineId,
+            lineEvent = new EventLineNew(event as EventLineNew);
+            reverseLineEvent = new EventLineDelete({
+              widgetType: lineEvent.widgetType,
+              lineId: lineEvent.lineId,
             });
             this.model.onLineEvent(reverseLineEvent);
             break;
@@ -907,14 +912,14 @@ export class Controller extends ControllerBase {
     location.reload();
   }
 
-  /* Parse events for __name__ and convert to Event Classes. */
+  /* Parse events for className and convert to Event Classes. */
   private applyClasses(data) {
     const returnData = [];
     data.forEach((command) => {
       const newCommand = {events: []};
       returnData.push(newCommand);
       command.events.forEach((event) => {
-        const cloneObj = new testEvents[event.__name__](event);
+        const cloneObj = new testEvents[event.className](event);
         newCommand.events.push(cloneObj);
       });
     });
