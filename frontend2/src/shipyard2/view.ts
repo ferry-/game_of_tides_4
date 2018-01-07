@@ -278,24 +278,28 @@ export abstract class ViewSection extends ViewBase {
   }
 
   // TODO Private?
-  protected getLineOver(event) {
+  protected getLineOver(event): [string, LineEnd, number] {
     const shape = event.target;
     const parent: Line = shape.getParent();
-    let lineId;
-    let endId;
+    let lineId: string;
+    let endId: LineEnd;
+    let itemIdx: number;
+
     if(parent instanceof Line) {
       lineId = parent.id();
-      if(shape.id() === "end1A") {
-        endId = LineEnd.A1;
-      } else if(shape.id() === "end2A") {
-        endId = LineEnd.A2;
-      } else if(shape.id() === "end1B") {
-        endId = LineEnd.B1;
-      } else if(shape.id() === "end2B") {
-        endId = LineEnd.B2;
+      const itemId: string = shape.id();
+      console.assert(Boolean(itemId.match(/^[nm]\d+/)));
+
+      if (itemId.charAt(0) === "n") {
+        endId = LineEnd.Point1;
+      } else if (itemId.charAt(0) === "m") {
+        endId = LineEnd.Point2;
       }
+
+      itemIdx = parseInt(itemId.substr(1), 10);
     }
-    return [lineId, endId];
+
+    return [lineId, endId, itemIdx];
   }
 
   protected onMouseMove(event) {
@@ -1130,9 +1134,9 @@ export class Line extends Konva.Group {
   public end2B: Konva.Circle;
 
   public ctrPoint: Konva.Circle[]; // Control points
-  public ctrPointLine: Konva.Line[]; // Connecting lines
+  public ctrPointLine: Konva.Line[]; // Connecting segments
+  public ctrMirrorPointLine: Konva.Line[]; // Mirrored segments
   public ctrMirrorPoint: Konva.Circle[]; // Mirrored control points
-  public ctrMirrorPointLine: Konva.Line[]; // Mirrored lines
 
   public mirrored: boolean;
   public z: number;

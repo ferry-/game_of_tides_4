@@ -1,13 +1,16 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-import {compareLinePos,
+import { clonePoint,
+  clonePointInto,
+  compareLinePos,
   ControllerBase,
   IBackgroundImage,
   IBackgroundImageEvent,
   IHash,
   ILine,
+  IPoint,
   LinePos,
-  IPoint} from "./controller";
+  subtractPoint} from "./controller";
 import {
   EventBase,
   EventLineDelete,
@@ -181,8 +184,10 @@ export class Model extends ModelBase {
   private createLine(event: EventLineModify) {
     const line: ILine = {
       id: event.lineId,
-      finishPos: {a: JSON.parse(JSON.stringify(event.startPoint)),
-                  b: {x: 0, y: 0, z: 0}},
+      finishPos: new LinePos([
+        clonePoint(event.startPoint),
+        {x: 0, y: 0, z: 0},
+      ]),
     };
     this.data.lines[event.lineId] = line;
   }
@@ -209,24 +214,40 @@ export class Model extends ModelBase {
     line.selected = true;
     this.data.selectedLines[line.id] = true;
 
+    console.assert(event.itemIdx >= 0);
     switch(event.lineEnd) {
-      case LineEnd.A1:
-        line.finishPos.a = JSON.parse(JSON.stringify(event.finishPoint));
+      case LineEnd.Point1:
+      case LineEnd.Point2:
+        console.assert(event.itemIdx < line.finishPos.pts.length);
         break;
-      case LineEnd.A2:
-        line.finishPos.a = JSON.parse(JSON.stringify(event.finishPoint));
-        line.finishPos.a.x = -line.finishPos.a.x;
+
+      case LineEnd.Segment1:
+      case LineEnd.Segment2:
+        console.assert(event.itemIdx < line.finishPos.pts.length-1);
         break;
-      case LineEnd.B1:
-        line.finishPos.b = JSON.parse(JSON.stringify(event.finishPoint));
+    }
+
+    const pt: IPoint = {x:0, y:0, z:0};
+    clonePointInto(pt, event.finishPoint);
+
+    switch(event.lineEnd) {
+      case LineEnd.Point2:
+        pt.x = -pt.x;
+      case LineEnd.Point1:
+        clonePointInto(line.finishPos.pts[event.itemIdx], pt);
         break;
-      case LineEnd.B2:
-        line.finishPos.b = JSON.parse(JSON.stringify(event.finishPoint));
-        line.finishPos.b.x = -line.finishPos.b.x;
+
+      case LineEnd.Segment2:
+        pt.x = -pt.x;
+      case LineEnd.Segment1:
+        const p1 = line.finishPos.pts[event.itemIdx];
+        const p2 = line.finishPos.pts[event.itemIdx+1];
+        const diff = subtractPoint(p2, p1);
+        clonePointInto(p1, event.finishPoint);
+        p2.x = p1.x + diff.x;
+        p2.y = p1.y + diff.y;
+        p2.z = p1.z + diff.z;
         break;
-      default:
-        console.log("TODO Move whole line");
-        return;
     }
 
     this.controller.updateViews(line);

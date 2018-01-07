@@ -1,6 +1,5 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-import * as testEvents from "./events";
 import {
   EventBase,
   EventLineDelete,
@@ -51,6 +50,16 @@ export interface IPoint {
   x: number;  // Port/Starboard axis.
   y: number;  // Up/Down axis.
   z: number;  // Fore/Aft axis.
+}
+
+export function clonePoint(p: IPoint): IPoint {
+  return {x: p.x, y: p.y, z: p.z};
+}
+
+export function clonePointInto(d: IPoint, p: IPoint) {
+  d.x = p.x;
+  d.y = p.y;
+  d.z = p.z;
 }
 
 export class LinePos {

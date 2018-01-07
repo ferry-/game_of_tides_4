@@ -3,12 +3,14 @@
 import { IPoint } from "./controller";
 
 export enum LineEnd {
-  A1,
-  B1,
-  A2,
-  B2,
-  Line1,
-  Line2,
+  Point1,
+  Point2,
+}
+
+export enum LineModifyAction {
+  Move,
+  AddPoint,
+  DeletePoint,
 }
 
 /* Events are implemented as Classes rather than TypeScript Interfaces so we
@@ -44,12 +46,14 @@ export class EventUiMouseMove extends EventBase {
   public startPoint: IPoint;
   public lineId?: string;
   public lineEnd?: LineEnd;
+  public itemIdx?: number;
 
   constructor(args: EventUiMouseMove) {
     super(args);
     this.startPoint = args.startPoint;
     this.lineId = args.lineId;
     this.lineEnd = args.lineEnd;
+    this.itemIdx = args.itemIdx;
   }
 }
 
@@ -59,6 +63,7 @@ export class EventUiMouseDrag extends EventBase {
   public finishPoint: IPoint;
   public lineId?: string;
   public lineEnd?: LineEnd;
+  public itemIdx?: number;
 
   constructor(args: EventUiMouseDrag) {
     super(args);
@@ -67,6 +72,7 @@ export class EventUiMouseDrag extends EventBase {
     this.finishPoint = args.finishPoint;
     this.lineId = args.lineId;
     this.lineEnd = args.lineEnd;
+    this.itemIdx = args.itemIdx;
   }
 }
 
@@ -85,11 +91,18 @@ export class EventUiInputElement extends EventBase {
   }
 }
 
-export class EventLineModify extends EventUiMouseDrag {}
+export class EventLineModify extends EventUiMouseDrag {
+  public act: LineModifyAction;
+  constructor(args: EventLineModify) {
+    super(args);
+    this.act = args.act;
+  }
+}
 export class EventLineNew extends EventUiMouseDrag {}
 
 export class EventLineSelect extends EventBase {
   public lineId?: string;
+  public segmentId?: number; // if absent, select whole line
 
   constructor(args: EventLineSelect) {
     super(args);
@@ -107,7 +120,7 @@ export class EventLineHighlight extends EventBase {
 }
 
 export class EventLineDelete extends EventBase {
-  public lineId?: string;
+  public lineId: string;
 
   constructor(args: EventLineDelete) {
     super(args);
